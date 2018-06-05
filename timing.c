@@ -90,7 +90,11 @@ main(int argc, char* argv[]) {
     // If this page is dirty, scan it, otherwise skip.
     if(bitarray_read(pagePool, pagei)) {
       for(ssize_t i=0; i<CACHELINES_IN_PAGE; i++) {
-        sweep_line(memPool+ptrIdx, MOM_DATA);
+        //multi_tag_read();
+        if(vecbinPool[ptrIdx/PTRS_IN_CACHELINE]) {
+          // There is at least one pointer in this cache line, scan.
+          sweep_line(memPool+ptrIdx, MOM_DATA);
+        }
         ptrIdx += PTRS_IN_CACHELINE;
       }
     } else {
