@@ -9,12 +9,16 @@
 
 int
 main(int argc, char* argv[]) {
-  if(argc != 2) {
-    fprintf(stderr, "Need just one argument, the filename of the vecbin.\n");
+  if(argc != 3) {
+    fprintf(stderr, "Need two arguments, the filename of the vecbin and the "
+        "number of iterations over which to take the average.\n");
     exit(-1);
   }
 
   char* vecbinName = argv[1];
+  // FIXME: no checking here to see if the number is valid.
+  int ITER = atoi(argv[2]);
+
   struct stat vecbinSt;
   size_t fileSize, realSize, ptrNum, cachelineNum, pageNum;
   if(stat(vecbinName, &vecbinSt) == 0) {
@@ -77,31 +81,37 @@ main(int argc, char* argv[]) {
 
   size_t cntStart = rdtsc_read();
 
-  size_t ptrIdx = 0;
-  for(ssize_t i=0; i<cachelineNum; i++) {
-    sweep_line(memPool+ptrIdx, MOM_DATA);
-    ptrIdx += PTRS_IN_CACHELINE;
-  }
-  printf("%ld cycles elapsed, no tricks.\n", rdtsc_read() - cntStart);
-
-  ptrIdx = 0;
-  cntStart = rdtsc_read();
-  for(ssize_t pagei=0; pagei<pageNum; pagei++) {
-    // If this page is dirty, scan it, otherwise skip.
-    if(bitarray_read(pagePool, pagei)) {
-      multi_tag_read();
-      for(ssize_t i=0; i<CACHELINES_IN_PAGE; i++) {
-        if(vecbinPool[ptrIdx/PTRS_IN_CACHELINE]) {
-          // There is at least one pointer in this cache line, scan.
-          sweep_line(memPool+ptrIdx, MOM_DATA);
-        }
-        ptrIdx += PTRS_IN_CACHELINE;
-      }
-    } else {
-      ptrIdx += PTRS_IN_PAGE;
+  size_t ptrIdx;
+  for(int iter=0; iter<ITER; iter++) {
+    ptrIdx = 0;
+    for(ssize_t i=0; i<cachelineNum; i++) {
+      sweep_line(memPool+ptrIdx, MOM_DATA);
+      ptrIdx += PTRS_IN_CACHELINE;
     }
   }
-  printf("%ld cycles elapsed, all tricks.\n", rdtsc_read() - cntStart);
+  printf("%ld cycles elapsed, no tricks.\n", (rdtsc_read() - cntStart)/ITER);
+
+  cntStart = rdtsc_read();
+
+  for(int iter=0; iter<ITER; iter++) {
+    ptrIdx = 0;
+    for(ssize_t pagei=0; pagei<pageNum; pagei++) {
+      // If this page is dirty, scan it, otherwise skip.
+      if(bitarray_read(pagePool, pagei)) {
+        multi_tag_read();
+        for(ssize_t i=0; i<CACHELINES_IN_PAGE; i++) {
+          if(vecbinPool[ptrIdx/PTRS_IN_CACHELINE]) {
+            // There is at least one pointer in this cache line, scan.
+            sweep_line(memPool+ptrIdx, MOM_DATA);
+          }
+          ptrIdx += PTRS_IN_CACHELINE;
+        }
+      } else {
+        ptrIdx += PTRS_IN_PAGE;
+      }
+    }
+  }
+  printf("%ld cycles elapsed, all tricks.\n", (rdtsc_read() - cntStart)/ITER);
 
   return 0;
 }
