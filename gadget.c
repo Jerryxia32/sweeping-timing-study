@@ -9,3 +9,10 @@ sweep_line(uint64_t* memPool, uint64_t momData) {
     }
   }
 }
+
+void
+trash_cache(volatile uint64_t* cacheTrashPool) {
+  for(ssize_t i=0; i<CACHE_TRASH_SIZE/sizeof(uint64_t); i++) {
+    uint64_t haha = cacheTrashPool[i];
+  }
+}

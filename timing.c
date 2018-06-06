@@ -40,6 +40,10 @@ main(int argc, char* argv[]) {
   char* vecbinPool = (char*)calloc(fileSize, 1);
   fread(vecbinPool, fileSize, 1, vecbinFile);
 
+  // Read from this array to completely trash the cache.
+  volatile uint64_t* cacheTrashPool =
+      (volatile uint64_t*)calloc(CACHE_TRASH_SIZE, 1);
+
   // Create pools, each pool indicates whether this cacheline or page is dirty
   // with capabilities.
   char* cachelinePool = (char*)calloc(cachelineNum/8, 1);
@@ -79,22 +83,30 @@ main(int argc, char* argv[]) {
   }
   printf("Dirty ptrs, %zd/%zu.\n", dirtyPtr, ptrNum);
 
-  size_t cntStart = rdtsc_read();
+  size_t cntStart = 0;
+  size_t cntTotal = 0;
 
   size_t ptrIdx;
   for(int iter=0; iter<ITER; iter++) {
+    // Each time we trash the cache for a cold start.
+    trash_cache(cacheTrashPool);
     ptrIdx = 0;
+    cntStart = rdtsc_read();
     for(ssize_t i=0; i<cachelineNum; i++) {
       sweep_line(memPool+ptrIdx, MOM_DATA);
       ptrIdx += PTRS_IN_CACHELINE;
     }
+    cntTotal += rdtsc_read() - cntStart;
   }
-  printf("%ld cycles elapsed, no tricks.\n", (rdtsc_read() - cntStart)/ITER);
+  printf("%ld cycles elapsed, no tricks.\n", cntTotal/ITER);
 
-  cntStart = rdtsc_read();
+  cntStart = 0;
+  cntTotal = 0;
 
   for(int iter=0; iter<ITER; iter++) {
+    trash_cache(cacheTrashPool);
     ptrIdx = 0;
+    cntStart = rdtsc_read();
     for(ssize_t pagei=0; pagei<pageNum; pagei++) {
       // If this page is dirty, scan it, otherwise skip.
       if(bitarray_read(pagePool, pagei)) {
@@ -110,8 +122,9 @@ main(int argc, char* argv[]) {
         ptrIdx += PTRS_IN_PAGE;
       }
     }
+    cntTotal += rdtsc_read() - cntStart;
   }
-  printf("%ld cycles elapsed, all tricks.\n", (rdtsc_read() - cntStart)/ITER);
+  printf("%ld cycles elapsed, all tricks.\n", cntTotal/ITER);
 
   return 0;
 }

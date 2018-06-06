@@ -12,6 +12,8 @@
 #define PTRS_IN_CACHELINE (CACHELINE_SIZE/PTR_SIZE)
 #define PTRS_IN_PAGE (PAGE_SIZE/PTR_SIZE)
 
+#define CACHE_TRASH_SIZE (128UL<<20)
+
 #include<inttypes.h>
 #include<unistd.h>
 
@@ -53,5 +55,6 @@ bitarray_write(char* bitarray, ssize_t idx, int data) {
 }
 
 void sweep_line(uint64_t* memPool, uint64_t momData);
+void trash_cache(volatile uint64_t* cacheTrashPool);
 
 #endif // _GADGET_H
