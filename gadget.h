@@ -12,7 +12,7 @@
 #define PTRS_IN_CACHELINE (CACHELINE_SIZE/PTR_SIZE)
 #define PTRS_IN_PAGE (PAGE_SIZE/PTR_SIZE)
 
-#define CACHE_TRASH_SIZE (128UL<<20)
+#define CACHE_TRASH_SIZE (64UL<<20)
 
 #include<inttypes.h>
 #include<unistd.h>
